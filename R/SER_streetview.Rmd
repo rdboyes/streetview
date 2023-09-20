@@ -1,0 +1,274 @@
+---
+title: "Improving prediction of outdoor active play using neighborhood images"
+author: "Randall Boyes"
+date: "12/16/2020"
+fontsize: 12pt
+output: 
+  beamer_presentation:
+    theme: "metropolis"
+    latex_engine: xelatex
+sansfont: Fira Sans
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+```
+
+## Presentation Outline
+
+- Motivation for the Project
+- Part 1: Can images be used to measure built environment? 
+- Part 2: Can we predict play with these measures?
+- Discussion and next steps
+
+## Motivation for Project
+
+- Health benefits of play
+  - Physical activity
+  - Social development
+- Determinants of play
+  - Supportive social environment
+  - Traffic safety
+  - Places to play
+
+## The Problem
+
+How can we measure the things that children say are important?
+
+## The Problem
+
+```{r table2, out.width="60%"}
+table1 <- data.frame(Qualitative = c('"Things to do"', 
+                                 '"On the Street"', 
+                                 '"People around"'),
+                    `Local Quantitative` = c("Parks, points of interest",
+                                  "Municipal traffic data",
+                                  "Surveys, etc"),
+                    `National Quantitative` = c("Parks, points of interest",
+                                  "No standardized complete source",
+                                  "Census proxy variables"))
+```
+\small
+```{r, out.width="60%"}
+knitr::kable(table1, booktabs = T, caption = "Available Data")
+```
+\normalsize
+
+## A Solution?
+
+```{r, out.width="100%"}
+knitr::include_graphics(here::here("sv_image.png"))
+```
+
+## A Solution?
+
+```{r, out.width="100%"}
+knitr::include_graphics(here::here("sv_image_annotated.png"))
+```
+
+---
+
+Part 1: Can images be used to measure built environment? 
+
+## Methods
+
+Semantic pixel-level image segmentation via neural network
+
+```{r, out.width="100%"}
+knitr::include_graphics(here::here("SegNet-neural-network_2x.png"))
+```
+
+## Methods
+
+The Cityscapes dataset contains 5,000 finely annotated street images.
+
+```{r, out.width="100%"}
+knitr::include_graphics(here::here("cityscapes_example.png"))
+```
+
+## Methods
+
+```{r, fig.align="center", out.height="90%"}
+knitr::include_graphics(here::here("segmenation_example.png"))
+```
+
+## Methods: Ground Truth
+
+```{r table1}
+table1 <- data.frame(Variable = c("Trees", 
+                                 "Sidewalks", 
+                                 "People Walking", 
+                                 "Cars", 
+                                 "Traffic Lights", 
+                                 "Cyclists"),
+                    Vancouver = c("Open Data Vancouver",
+                                  "",
+                                  "",
+                                  "Open Data Vancouver",
+                                  "Open Data Vancouver",
+                                  ""),
+                    Kingston = c("",
+                                 "Open Data Kingston",
+                                 "City of Kingston",
+                                 "City of Kingston",
+                                 "City of Kingston",
+                                 "City of Kingston"))
+knitr::kable(table1, booktabs = T, caption = "Sources for comparison variables")
+```
+
+## Methods: Points Queried from API
+
+```{r}
+library(tidyverse)
+
+load(file = here::here('data/locations_xc.rda'))
+load(here::here('data/buffers_van_50.rda'))
+load(here::here('data/points_on_land_kng_all.rda'))
+```
+
+```{r, fig.cap="Points queried in Vancouver (above) and kingston (below).", fig.height = 8}
+van_points <- ggplot(locations) + 
+  geom_sf(alpha = 0.25, size = 0.1) + 
+  theme_void() +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))
+  
+kng_points <- ggplot(points_on_land) + 
+  geom_sf(alpha = 0.25, size = 0.1) + 
+  theme_void() +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))
+```
+
+Streetview images were obtained every 150 m along each road: 
+
+```{r, fig.cap="Kingston, ON"}
+kng_points
+```
+
+## Methods: Points Queried from API
+
+```{r, fig.cap="Vancouver, BC"}
+van_points
+```
+
+## Identifying Traffic Lights
+
+```{r}
+knitr::include_graphics(here::here("traffic_lights_kingston_crop.jpg"))
+```
+
+## Detecting Sidewalks
+
+```{r}
+knitr::include_graphics(here::here("sidewalks_vs_true.png"))
+```
+
+## Measuring Vegetation
+
+```{r, out.height = "60%", fig.align='center'}
+knitr::include_graphics(here::here("tree_hex_map.png"))
+```
+
+## Measuring Vegetation
+
+```{r, out.height = "70%", fig.align='center'}
+knitr::include_graphics(here::here("trees_vs_veg.png"))
+```
+
+## Measuring Traffic Density: Pedestrians
+
+```{r, out.height = "70%", fig.align='center'}
+knitr::include_graphics(here::here("person.png"))
+```
+
+## Measuring Traffic Density: Cyclists
+
+```{r, out.height = "70%", fig.align='center'}
+knitr::include_graphics(here::here("bicycle.png"))
+```
+
+## Measuring Traffic Density: Buffer Sizing
+
+```{r, out.height = "70%", fig.align='center'}
+knitr::include_graphics(here::here("correlation_comparison.png"))
+```
+
+---
+
+Part 2: Can we predict play with these measures?
+
+## Methods
+
+- Data Sources
+  - Play data: 
+    - Vancouver: Accelerometer (105 children)
+    - Kingston: HBSC Survey (120 children)
+  - Baseline data: Census, CAN-ALE, EPOI, OpenStreetMap
+  - Image Data: Google StreetView API
+  
+## Methods
+
+- Models included measurements within 500 on-road meters of "home"
+  - Vancouver: Measured from actual home
+  - Kingston: Measured from point on road nearest to postal code centroid
+
+## Methods: Models of Play
+
+- Variables
+  - Baseline model: Street connectivity, parks and green space, points of interest, transit access, residential mobility, active transport utilization, housing type and density, population age distribution, cycling and walking paths
+  - StreetView model: Baseline model, plus image-derived variables
+
+## Methods: Models of Play
+
+- Elastic net models, continuous outcome (minutes of play/day)
+- Trained using 5-fold cross validation, tested on 30% holdout
+
+## Results: Accuracy of Prediction
+
+```{r}
+table1 <- data.frame(Model = c('Baseline', 
+                                 'Baseline + Images'),
+                    MAE = c("24.4 Minutes",
+                                  "19.6 Minutes"))
+knitr::kable(table1, booktabs = T, caption = "Prediction Mean Absolute Error")
+```
+
+## Discussion
+
+- Strengths
+  - High coverage (~99% of North America)
+  - Updated data
+  - Standardized methodology
+- Limitations
+  - Weak correlations with ground truth variables in some cases
+  - Rural areas have infrequent updates
+  - Computationally expensive
+  - Snapshot in time (summer, afternoon)
+
+## Next Steps
+
+- The next phase will test this method in the full HBSC sample (n > 10,000)
+- Results to come!
+
+## Conclusion
+  
+- Thanks to the Pickett Lab group for review
+- Connect with me if interested:
+  - github.com/rdboyes
+  - Twitter: @randyboyes
+  
+  
+## Estimated Traffic Lights vs. True Count
+
+```{r}
+#knitr::include_graphics(here::here("True_TL_vs_SV.png"))
+```
+
+## Comparing with Play Behaviour
+
+Comparing values at nearest point with play behaviour:
+
+```{r, out.width="80%", fig.align='center'}
+#knitr::include_graphics(here::here("univariate.png"))
+```
